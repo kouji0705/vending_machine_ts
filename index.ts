@@ -1,73 +1,41 @@
-import z from "zod";
+import { Cash } from './domain/Cash';
+import { BankAccount } from './domain/BankAccount';
+import { BankAccountService } from './domain/BankAccountService';
+import { InMemoryBankAccountRepository } from './infra/InMemoryBankAccountRepository';
 
-// 値オブジェクト
-export const Cash = z.union([
-    z.literal(10),
-    z.literal(50),
-    z.literal(100),
-    z.literal(500),
-    z.literal(1000),
-]).brand<"Cash">();
-export type Cash = z.infer<typeof Cash>;
+// リポジトリの具体的な実装を作成
+const repository = new InMemoryBankAccountRepository();
 
-// 両替機エンティティ
-class ExchangeMachine {
-    private balance: Cash[];
+// 銀行口座を初期化してリポジトリに保存
+const bankAccount = new BankAccount();
+repository.save(bankAccount);
 
-    constructor() {
-        this.balance = [];
-    }
+// サービスを初期化
+const bankAccountService = new BankAccountService(repository);
 
-    deposit(cash: Cash): void {
-        this.balance.push(cash);
-    }
+// 銀行口座IDを設定（サンプル用に固定のIDを使用）
+const bankAccountId = "default";
 
-    exchange(cash: Cash): Cash {
-        const totalBalance = this.balance.reduce((acc, curr) => acc + curr, 0);
+// 現金を預金
+console.log('Depositing 100...');
+bankAccountService.deposit(bankAccountId, 100 as Cash);
+console.log('Depositing 500...');
+bankAccountService.deposit(bankAccountId, 500 as Cash);
 
-        if (totalBalance < cash) {
-            throw new Error("Insufficient balance for exchange");
-        }
-
-        this.balance = this.balance.filter(b => b !== cash);
-        return cash;
-    }
+// 現金を出金
+try {
+    console.log('Withdrawing 100...');
+    bankAccountService.withdraw(bankAccountId, 100 as Cash);
+    console.log('Withdrawing 50...');
+    bankAccountService.withdraw(bankAccountId, 50 as Cash);
+} catch (error) {
+    console.error(error);
 }
 
-// リポジトリ
-interface ExchangeMachineRepository {
-    save(exchangeMachine: ExchangeMachine): void;
-    find(id: string): ExchangeMachine | null;
+// 残高の確認
+try {
+    const balance = bankAccountService.getBalance(bankAccountId);
+    console.log(`Current balance: ${balance}`); // 現在の残高を表示
+} catch (error) {
+    console.error(error);
 }
-
-// ドメインサービス
-class ExchangeService {
-    private repository: ExchangeMachineRepository;
-
-    constructor(repository: ExchangeMachineRepository) {
-        this.repository = repository;
-    }
-
-    deposit(exchangeMachineId: string, cash: Cash): void {
-        const exchangeMachine = this.repository.find(exchangeMachineId);
-        if (exchangeMachine) {
-            exchangeMachine.deposit(cash);
-            this.repository.save(exchangeMachine);
-        } else {
-            throw new Error("Exchange machine not found");
-        }
-    }
-
-    exchange(exchangeMachineId: string, cash: Cash): Cash {
-        const exchangeMachine = this.repository.find(exchangeMachineId);
-        if (exchangeMachine) {
-            const exchangedCash = exchangeMachine.exchange(cash);
-            this.repository.save(exchangeMachine);
-            return exchangedCash;
-        } else {
-            throw new Error("Exchange machine not found");
-        }
-    }
-}
-
-export { ExchangeMachine, ExchangeService, ExchangeMachineRepository };
