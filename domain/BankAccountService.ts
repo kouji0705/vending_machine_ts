@@ -1,14 +1,24 @@
 import { Cash } from './Cash';
 import { BankAccountRepository } from './BankAccountRepository';
+import { AuthService } from './AuthService';
 
 class BankAccountService {
     private repository: BankAccountRepository;
+    private authService: AuthService;
 
-    constructor(repository: BankAccountRepository) {
+    constructor(repository: BankAccountRepository, authService: AuthService) {
         this.repository = repository;
+        this.authService = authService;
     }
 
-    deposit(accountId: string, cash: Cash): void {
+    private authenticate(username: string, password: string): void {
+        if (!this.authService.authenticate(username, password)) {
+            throw new Error("Authentication failed");
+        }
+    }
+
+    deposit(accountId: string, cash: Cash, username: string, password: string): void {
+        this.authenticate(username, password);
         const account = this.repository.find(accountId);
         if (account) {
             account.deposit(cash);
@@ -18,7 +28,8 @@ class BankAccountService {
         }
     }
 
-    withdraw(accountId: string, cash: Cash): void {
+    withdraw(accountId: string, cash: Cash, username: string, password: string): void {
+        this.authenticate(username, password);
         const account = this.repository.find(accountId);
         if (account) {
             account.withdraw(cash);
@@ -28,7 +39,8 @@ class BankAccountService {
         }
     }
 
-    getBalance(accountId: string): number {
+    getBalance(accountId: string, username: string, password: string): number {
+        this.authenticate(username, password);
         const account = this.repository.find(accountId);
         if (account) {
             return account.getBalance();
